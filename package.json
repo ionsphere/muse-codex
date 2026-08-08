@@ -1,12 +1,14 @@
 {
-  "name": "my-muse-harness",
-  "version": "0.1.0",
-  "description": "Windows-compatible harness for Muse Spark 1.2 / 1.1 - Codex-style",
+  "name": "muse-codex",
+  "version": "0.2.0",
+  "description": "Cross-platform Codex-style harness for Meta Muse Spark, with WSL as the first complete runtime",
   "type": "module",
   "scripts": {
     "muse": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "tsx --test test/*.test.ts",
+    "check": "npm run build && npm test"
   },
   "dependencies": {
     "diff": "^5.1.0",
