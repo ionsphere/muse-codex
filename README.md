@@ -19,7 +19,7 @@ On Windows, `auto` intentionally selects WSL because that is the first supported
 1. Install WSL (Ubuntu is fine): `wsl --install`.
 2. Install Node.js 20+ on Windows.
 3. Run `npm install`.
-4. Copy `.env.example` to `.env` and set `MUSE_API_KEY`.
+4. Copy `.env.example` to `.env` and set `META_MODEL_API_KEY`.
 5. Point `WORKDIR` at an existing checkout you want the agent to modify.
 6. Run:
 
@@ -50,11 +50,11 @@ or `MUSE_PLATFORM=wsl|linux|macos|windows|ios`.
 The client uses the OpenAI-compatible chat-completions tool-calling shape and defaults to:
 
 ```text
-MUSE_API_BASE=https://api.meta.ai/v1
-MUSE_MODEL=muse-spark-1.2
+META_MODEL_API_BASE_URL=https://api.meta.ai/v1
+META_MODEL_API_MODEL=muse-spark-1.2
 ```
 
-Legacy `LLAMA_API_KEY`, `LLAMA_API_BASE`, and `LLAMA_MODEL` environment variables remain accepted as fallbacks.
+`MUSE_API_KEY`, `MUSE_API_BASE`, and `MUSE_MODEL` are accepted as harness-specific aliases. Legacy `LLAMA_API_KEY`, `LLAMA_API_BASE`, and `LLAMA_MODEL` remain accepted as fallbacks.
 
 ## Harness tools
 
