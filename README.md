@@ -19,15 +19,40 @@ On Windows, `auto` intentionally selects WSL because that is the first supported
 1. Install WSL (Ubuntu is fine): `wsl --install`.
 2. Install Node.js 20+ on Windows.
 3. Run `npm install`.
-4. Copy `.env.example` to `.env` and set `META_MODEL_API_KEY`.
-5. Point `WORKDIR` at an existing checkout you want the agent to modify.
-6. Run:
+4. Point `WORKDIR` at an existing checkout you want the agent to modify.
+5. Run:
 
 ```bash
 npm run muse -- "Fix the failing tests in the auth module"
 ```
 
+On the first run, Muse Codex opens Meta's Model API portal. Sign in, create the one-click API key, and paste it once into the terminal. The key is then stored using OS-protected credential storage rather than a project `.env` file.
+
 The Windows path in `WORKDIR` is translated to `/mnt/<drive>/...` for commands executed inside WSL, while file editing stays in the host process. This allows Windows and WSL to operate on the same checkout.
+
+## Authentication
+
+Explicit login is also available:
+
+```bash
+npm run muse -- login
+npm run muse -- auth status
+npm run muse -- logout
+```
+
+Credential storage:
+
+- Windows: DPAPI protected for the current Windows user
+- macOS: Keychain
+- Linux: Secret Service via `secret-tool`
+
+Environment variables remain supported for CI and advanced setups. Credential resolution order is:
+
+1. `META_MODEL_API_KEY` / compatibility environment aliases
+2. OS secure credential store
+3. interactive login
+
+Meta currently exposes Model API access through account signup plus one-click API key creation; Muse Codex therefore performs a browser handoff and one-time paste rather than pretending a third-party OAuth/device-code flow exists.
 
 ## Platform selection
 
@@ -77,7 +102,7 @@ The agent preserves native model tool-call IDs and sends tool results back as `r
 npm run check
 ```
 
-This runs TypeScript compilation and the portable filesystem/patch tests.
+This runs TypeScript compilation and the portable tests.
 
 ## Next platform work
 
