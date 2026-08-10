@@ -188,7 +188,7 @@ async function executeTool(name: string, args: Record<string, any>, opts: RunAge
 }
 
 function serializeResult(result: unknown): string {
-  const serialized = JSON.stringify(result);
+  const serialized = JSON.stringify(result) ?? 'null';
   return serialized.length > 50_000 ? `${serialized.slice(0, 50_000)}…[truncated]` : serialized;
 }
 
