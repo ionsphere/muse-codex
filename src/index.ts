@@ -5,6 +5,7 @@ import { config, setRuntimeApiKey } from './config.js';
 import { detectPlatform } from './platforms/index.js';
 import { runAgent } from './agent.js';
 import { authStatus, ensureMetaCredential, loginMeta, logoutMeta } from './auth/meta-auth.js';
+import { ModelRegistry, parseModelSelection, setModelCredential } from './models.js';
 
 type Command = 'run' | 'login' | 'logout' | 'auth-status';
 
@@ -17,11 +18,18 @@ function parseArgs(argv: string[]) {
 
   const taskParts: string[] = [];
   let platform: string | undefined;
+  let model: string | undefined;
+  let listProviders = false;
 
   for (let i = start; i < argv.length; i++) {
     if (argv[i] === '--platform') {
       platform = argv[++i];
       if (!platform) throw new Error('--platform requires a value');
+    } else if (argv[i] === '--model') {
+      model = argv[++i];
+      if (!model) throw new Error('--model requires provider/model');
+    } else if (argv[i] === '--list-providers') {
+      listProviders = true;
     } else {
       taskParts.push(argv[i]);
     }
@@ -31,6 +39,8 @@ function parseArgs(argv: string[]) {
     command,
     task: taskParts.join(' ') || 'Explore codebase and summarize',
     platform,
+    model,
+    listProviders,
   };
 }
 
@@ -40,6 +50,7 @@ async function main() {
   if (args.command === 'login') {
     const apiKey = await loginMeta();
     setRuntimeApiKey(apiKey);
+    setModelCredential('meta', apiKey);
     console.log('✓ Meta Model API login complete');
     return;
   }
@@ -58,11 +69,21 @@ async function main() {
     return;
   }
 
+  if (args.listProviders) {
+    console.log(new ModelRegistry().list().join('\n'));
+    return;
+  }
   if (args.platform) process.env.MUSE_PLATFORM = args.platform;
 
-  const credential = await ensureMetaCredential();
-  setRuntimeApiKey(credential.apiKey);
-  if (credential.source !== 'environment') console.log(`Authenticated via ${credential.source}`);
+  const selection = args.model
+    ? parseModelSelection(args.model)
+    : parseModelSelection(config.model, process.env.MUSE_PROVIDER || 'meta');
+  if (selection.provider === 'meta') {
+    const credential = await ensureMetaCredential();
+    setRuntimeApiKey(credential.apiKey);
+    setModelCredential('meta', credential.apiKey);
+    if (credential.source !== 'environment') console.log(`Authenticated via ${credential.source}`);
+  }
 
   const platform = detectPlatform();
   const workdir = path.resolve(config.workdir);
@@ -73,7 +94,7 @@ async function main() {
   }
 
   console.log(`Selected platform: ${platform.id} (${platform.label})`);
-  await runAgent({ task: args.task, workdir });
+  await runAgent({ task: args.task, workdir, selection });
 }
 
 main().catch((error) => {
