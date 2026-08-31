@@ -1,5 +1,13 @@
+let runtimeApiKey = '';
+
+export function setRuntimeApiKey(apiKey: string): void {
+  runtimeApiKey = apiKey;
+}
+
 export const config = {
-  apiKey: process.env.META_MODEL_API_KEY || process.env.MUSE_API_KEY || process.env.LLAMA_API_KEY || '',
+  get apiKey() {
+    return runtimeApiKey || process.env.META_MODEL_API_KEY || process.env.MUSE_API_KEY || process.env.LLAMA_API_KEY || '';
+  },
   model: process.env.META_MODEL_API_MODEL || process.env.MUSE_MODEL || process.env.LLAMA_MODEL || 'muse-spark-1.2',
   workdir: process.env.WORKDIR || './workdir',
   apiBase: (
