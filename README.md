@@ -84,6 +84,16 @@ Built-in OpenAI-compatible adapters cover Meta, OpenAI, xAI, Kimi/Moonshot, Qwen
 
 The adapter interface is intentionally independent from Chat Completions so native Responses, Anthropic, or other protocols can be added without changing the agent runtime.
 
+## Declarative swarms
+
+Define role-specific models, prompts, dependencies, receive modes, and workspace isolation in `muse.swarm.json`. See `muse.swarm.example.json` for a Specifier → Coder → Reviewer workflow.
+
+```bash
+npm run muse -- swarm --config muse.swarm.json "Add account recovery"
+```
+
+Roles whose dependencies are satisfied run concurrently. A `worktree` role receives its own Git branch and checkout under `.muse/worktrees/`. Downstream roles receive atomic handoff records containing a verified 40-character commit ID and bounded summary under `.muse/handoffs/`. Set `workspace` to `shared` only for a role that intentionally operates on the main checkout.
+
 ## Harness tools
 
 - `read_file` - bounded UTF-8 file reads

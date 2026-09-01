@@ -6,8 +6,10 @@ import { detectPlatform } from './platforms/index.js';
 import { runAgent } from './agent.js';
 import { authStatus, ensureMetaCredential, loginMeta, logoutMeta } from './auth/meta-auth.js';
 import { ModelRegistry, parseModelSelection, setModelCredential } from './models.js';
+import { loadSwarmConfig } from './swarm/config.js';
+import { runSwarm } from './swarm/runner.js';
 
-type Command = 'run' | 'login' | 'logout' | 'auth-status';
+type Command = 'run' | 'swarm' | 'login' | 'logout' | 'auth-status';
 
 function parseArgs(argv: string[]) {
   let command: Command = 'run';
@@ -15,11 +17,13 @@ function parseArgs(argv: string[]) {
   if (argv[0] === 'login') { command = 'login'; start = 1; }
   else if (argv[0] === 'logout') { command = 'logout'; start = 1; }
   else if (argv[0] === 'auth' && argv[1] === 'status') { command = 'auth-status'; start = 2; }
+  else if (argv[0] === 'swarm') { command = 'swarm'; start = 1; }
 
   const taskParts: string[] = [];
   let platform: string | undefined;
   let model: string | undefined;
   let listProviders = false;
+  let swarmConfig = 'muse.swarm.json';
 
   for (let i = start; i < argv.length; i++) {
     if (argv[i] === '--platform') {
@@ -30,6 +34,9 @@ function parseArgs(argv: string[]) {
       if (!model) throw new Error('--model requires provider/model');
     } else if (argv[i] === '--list-providers') {
       listProviders = true;
+    } else if (argv[i] === '--config') {
+      swarmConfig = argv[++i];
+      if (!swarmConfig) throw new Error('--config requires a file');
     } else {
       taskParts.push(argv[i]);
     }
@@ -41,6 +48,7 @@ function parseArgs(argv: string[]) {
     platform,
     model,
     listProviders,
+    swarmConfig,
   };
 }
 
@@ -75,10 +83,14 @@ async function main() {
   }
   if (args.platform) process.env.MUSE_PLATFORM = args.platform;
 
+  const swarm = args.command === 'swarm' ? loadSwarmConfig(args.swarmConfig) : undefined;
   const selection = args.model
     ? parseModelSelection(args.model)
     : parseModelSelection(config.model, process.env.MUSE_PROVIDER || 'meta');
-  if (selection.provider === 'meta') {
+  const needsMeta = swarm
+    ? swarm.roles.some((role) => role.model.provider === 'meta')
+    : selection.provider === 'meta';
+  if (needsMeta) {
     const credential = await ensureMetaCredential();
     setRuntimeApiKey(credential.apiKey);
     setModelCredential('meta', credential.apiKey);
@@ -94,6 +106,11 @@ async function main() {
   }
 
   console.log(`Selected platform: ${platform.id} (${platform.label})`);
+  if (swarm) {
+    const result = await runSwarm(swarm, args.task, workdir);
+    console.log(`Swarm ${result.runId} completed ${result.roles.length} roles`);
+    return;
+  }
   await runAgent({ task: args.task, workdir, selection });
 }
 

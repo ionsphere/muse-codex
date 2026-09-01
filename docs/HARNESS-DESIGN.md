@@ -23,12 +23,14 @@ Grok Build is the stronger single-agent harness and product surface. SwarmForge 
 - A model is selected as `provider/model` globally or per spawned agent.
 - `AgentCoordinator` starts concurrent agents, tracks lifecycle, waits for results, and accepts steering messages.
 - All agents retain the existing work-directory containment rules.
+- Declarative swarms define role-specific models, prompts, dependencies, receive modes, and workspace policies.
+- Editing roles can run in isolated Git worktrees, and dependency edges produce atomic, commit-verified handoffs.
 
 ## Next runtime layers
 
 1. Durable sessions: replace the activity-only JSONL file with atomic session metadata, event replay, checkpoints, and context compaction.
-2. Worktree manager: isolate editing agents and merge only commit-addressed handoffs, inspired by SwarmForge.
-3. Declarative swarms: project-local role, model, prompt, dependency, receive-mode, and quality-gate configuration.
+2. Worktree integration: add explicit review/cherry-pick promotion policies and safe cleanup for completed run worktrees.
+3. Declarative swarm gates: add command-based quality gates and conditional/retry transitions.
 4. Policy engine: approvals, command allow/deny rules, network and secret boundaries, hooks, and sandbox profiles enforced in code.
 5. Extension protocol: skills, MCP servers, plugins, and typed hooks independent of provider message format.
 6. Normalized streaming events: text, reasoning, tool calls, diffs, agent lifecycle, usage, and errors for CLI/TUI/desktop clients.

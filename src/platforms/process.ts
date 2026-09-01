@@ -6,6 +6,7 @@ export async function spawnWithTimeout(
   args: string[],
   timeoutMs: number,
   cwd?: string,
+  stream = true,
 ): Promise<ExecResult> {
   return new Promise((resolve) => {
     let stdout = '';
@@ -28,12 +29,12 @@ export async function spawnWithTimeout(
     child.stdout.on('data', (data) => {
       const value = data.toString();
       stdout += value;
-      process.stdout.write(value);
+      if (stream) process.stdout.write(value);
     });
     child.stderr.on('data', (data) => {
       const value = data.toString();
       stderr += value;
-      process.stderr.write(value);
+      if (stream) process.stderr.write(value);
     });
 
     child.on('close', (code) => {
