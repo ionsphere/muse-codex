@@ -18,4 +18,5 @@ export const config = {
   ).replace(/\/$/, ''),
   maxSteps: Number(process.env.MUSE_MAX_STEPS || 100),
   commandTimeoutMs: Number(process.env.MUSE_COMMAND_TIMEOUT_MS || 120_000),
+  maxAgents: Number(process.env.MUSE_MAX_AGENTS || 4),
 };

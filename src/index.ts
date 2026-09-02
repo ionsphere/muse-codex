@@ -5,8 +5,11 @@ import { config, setRuntimeApiKey } from './config.js';
 import { detectPlatform } from './platforms/index.js';
 import { runAgent } from './agent.js';
 import { authStatus, ensureMetaCredential, loginMeta, logoutMeta } from './auth/meta-auth.js';
+import { ModelRegistry, parseModelSelection, setModelCredential } from './models.js';
+import { loadSwarmConfig } from './swarm/config.js';
+import { runSwarm } from './swarm/runner.js';
 
-type Command = 'run' | 'login' | 'logout' | 'auth-status';
+type Command = 'run' | 'swarm' | 'login' | 'logout' | 'auth-status';
 
 function parseArgs(argv: string[]) {
   let command: Command = 'run';
@@ -14,14 +17,26 @@ function parseArgs(argv: string[]) {
   if (argv[0] === 'login') { command = 'login'; start = 1; }
   else if (argv[0] === 'logout') { command = 'logout'; start = 1; }
   else if (argv[0] === 'auth' && argv[1] === 'status') { command = 'auth-status'; start = 2; }
+  else if (argv[0] === 'swarm') { command = 'swarm'; start = 1; }
 
   const taskParts: string[] = [];
   let platform: string | undefined;
+  let model: string | undefined;
+  let listProviders = false;
+  let swarmConfig = 'muse.swarm.json';
 
   for (let i = start; i < argv.length; i++) {
     if (argv[i] === '--platform') {
       platform = argv[++i];
       if (!platform) throw new Error('--platform requires a value');
+    } else if (argv[i] === '--model') {
+      model = argv[++i];
+      if (!model) throw new Error('--model requires provider/model');
+    } else if (argv[i] === '--list-providers') {
+      listProviders = true;
+    } else if (argv[i] === '--config') {
+      swarmConfig = argv[++i];
+      if (!swarmConfig) throw new Error('--config requires a file');
     } else {
       taskParts.push(argv[i]);
     }
@@ -31,6 +46,9 @@ function parseArgs(argv: string[]) {
     command,
     task: taskParts.join(' ') || 'Explore codebase and summarize',
     platform,
+    model,
+    listProviders,
+    swarmConfig,
   };
 }
 
@@ -40,6 +58,7 @@ async function main() {
   if (args.command === 'login') {
     const apiKey = await loginMeta();
     setRuntimeApiKey(apiKey);
+    setModelCredential('meta', apiKey);
     console.log('✓ Meta Model API login complete');
     return;
   }
@@ -58,11 +77,25 @@ async function main() {
     return;
   }
 
+  if (args.listProviders) {
+    console.log(new ModelRegistry().list().join('\n'));
+    return;
+  }
   if (args.platform) process.env.MUSE_PLATFORM = args.platform;
 
-  const credential = await ensureMetaCredential();
-  setRuntimeApiKey(credential.apiKey);
-  if (credential.source !== 'environment') console.log(`Authenticated via ${credential.source}`);
+  const swarm = args.command === 'swarm' ? loadSwarmConfig(args.swarmConfig) : undefined;
+  const selection = args.model
+    ? parseModelSelection(args.model)
+    : parseModelSelection(config.model, process.env.MUSE_PROVIDER || 'meta');
+  const needsMeta = swarm
+    ? swarm.roles.some((role) => role.model.provider === 'meta')
+    : selection.provider === 'meta';
+  if (needsMeta) {
+    const credential = await ensureMetaCredential();
+    setRuntimeApiKey(credential.apiKey);
+    setModelCredential('meta', credential.apiKey);
+    if (credential.source !== 'environment') console.log(`Authenticated via ${credential.source}`);
+  }
 
   const platform = detectPlatform();
   const workdir = path.resolve(config.workdir);
@@ -73,7 +106,12 @@ async function main() {
   }
 
   console.log(`Selected platform: ${platform.id} (${platform.label})`);
-  await runAgent({ task: args.task, workdir });
+  if (swarm) {
+    const result = await runSwarm(swarm, args.task, workdir);
+    console.log(`Swarm ${result.runId} completed ${result.roles.length} roles`);
+    return;
+  }
+  await runAgent({ task: args.task, workdir, selection });
 }
 
 main().catch((error) => {

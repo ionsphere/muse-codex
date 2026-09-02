@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "roles": [
+    {
+      "id": "specifier",
+      "model": "kimi/kimi-k2",
+      "prompt": "Turn the request into concrete acceptance criteria. Do not edit production code.",
+      "workspace": "worktree"
+    },
+    {
+      "id": "coder",
+      "model": "qwen/qwen3-coder-plus",
+      "prompt": "Implement the accepted behavior with focused tests and commit the result.",
+      "dependsOn": ["specifier"],
+      "workspace": "worktree",
+      "receive": "task"
+    },
+    {
+      "id": "reviewer",
+      "model": "openai/gpt-5.4",
+      "prompt": "Review correctness, architecture, and tests. Fix verified defects and commit any changes.",
+      "dependsOn": ["coder"],
+      "workspace": "worktree",
+      "receive": "batch"
+    }
+  ]
+}
