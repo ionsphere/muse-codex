@@ -125,6 +125,7 @@ async function main() {
   const platform = detectPlatform();
   console.log(`Selected platform: ${platform.id} (${platform.label})`);
   if (swarm) {
+    console.log(`Configured workdir: ${workdir}`);
     const result = await runSwarm(swarm, args.task, workdir);
     console.log(`Swarm ${result.runId} completed ${result.roles.length} roles`);
     return;

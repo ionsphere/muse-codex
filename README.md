@@ -94,6 +94,10 @@ npm run muse -- swarm --config muse.swarm.json "Add account recovery"
 
 Roles whose dependencies are satisfied run concurrently. A `worktree` role receives its own Git branch and checkout under `.muse/worktrees/`. Downstream roles receive atomic handoff records containing a verified 40-character commit ID and bounded summary under `.muse/handoffs/`. Set `workspace` to `shared` only for a role that intentionally operates on the main checkout.
 
+`WORKDIR` may point at the repository itself, an ordinary subdirectory, or a nested Git checkout. A nested checkout wins even when its directory is ignored by the parent repository. An ignored placeholder with no nested `.git` is rejected instead of silently targeting the parent; initialize or clone a repository there, or set `WORKDIR=.` to target the parent explicitly.
+
+Fully isolated swarms start from committed `HEAD` and may run while the main checkout has local changes—the CLI lists those paths and makes clear they are excluded. A swarm containing any `shared` role still requires a clean checkout and reports the exact blocking paths plus remediation.
+
 Each role may declare ordered `gates` with a name, command, and timeout plus `maxAttempts`. A failed gate sends bounded output back to that role for correction; no downstream handoff occurs until every gate passes and the worktree is clean. Run state is atomically recorded under `.muse/runs/`.
 
 Promotion and cleanup are explicit lifecycle operations:

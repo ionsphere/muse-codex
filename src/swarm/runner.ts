@@ -1,18 +1,46 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { runAgent } from '../agent.js';
 import { AgentCoordinator } from '../coordinator.js';
 import { config as runtimeConfig } from '../config.js';
 import type { SwarmConfig, SwarmRole } from './config.js';
 import { HandoffStore, type Handoff } from './handoffs.js';
-import { repositoryRoot, resolveCommit, WorktreeManager, worktreeIsClean } from './git.js';
+import { formatWorktreeChanges, pathIsIgnored, repositoryRoot, resolveCommit, WorktreeManager, worktreeChanges, worktreeIsClean } from './git.js';
 import { gateFailurePrompt, runQualityGates, type GateResult } from './gates.js';
 import { RunStore, type RoleRunRecord, type SwarmRunRecord } from './runs.js';
 
 export type SwarmRunResult = { runId: string; roles: Array<{ role: string; result: string; workdir: string; commit: string }> };
 
+export async function inspectSwarmWorkspace(config: SwarmConfig, workdir: string) {
+  const repository = fs.realpathSync.native(await repositoryRoot(workdir));
+  const requested = fs.realpathSync.native(path.resolve(workdir));
+  const relative = path.relative(repository, requested);
+  if (relative && !relative.startsWith('..') && !path.isAbsolute(relative) && await pathIsIgnored(repository, requested)) {
+    throw new Error(
+      `Configured workdir is an ignored directory inside another repository, not a nested Git checkout.\n` +
+      `Configured workdir: ${requested}\nParent repository: ${repository}\n` +
+      `Clone or initialize a repository at ${requested}, or set WORKDIR=${repository} to target the parent repository.`,
+    );
+  }
+  const baseCommit = await resolveCommit(repository);
+  const localChanges = await worktreeChanges(repository);
+  const sharedRoles = config.roles.filter((role) => role.workspace === 'shared').map((role) => role.id);
+  if (localChanges.length && sharedRoles.length) throw new Error(
+    `Swarm roles using the shared checkout require a clean repository.\n` +
+    `Repository: ${repository}\nShared roles: ${sharedRoles.join(', ')}\nChanged paths:\n${formatWorktreeChanges(localChanges)}\n` +
+    'Commit or stash these changes, or set those roles to workspace "worktree".',
+  );
+  return { repository, baseCommit, localChanges };
+}
+
 export async function runSwarm(config: SwarmConfig, task: string, workdir: string): Promise<SwarmRunResult> {
-  const repository = await repositoryRoot(workdir);
-  if (!await worktreeIsClean(repository)) throw new Error('Swarm runs require a clean repository worktree');
+  const { repository, baseCommit, localChanges } = await inspectSwarmWorkspace(config, workdir);
+  console.log(`Swarm repository: ${repository}`);
+  console.log(`Swarm base commit: ${baseCommit}`);
+  if (localChanges.length) console.warn(
+    `Notice: ${localChanges.length} local change(s) are not included; isolated roles start from committed HEAD:\n` +
+    formatWorktreeChanges(localChanges),
+  );
   const runId = `${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${process.pid}`;
   const worktrees = new WorktreeManager(repository, runId);
   const handoffs = new HandoffStore(repository, runId);

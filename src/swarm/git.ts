@@ -8,12 +8,26 @@ async function git(args: string[], cwd: string) {
   return result.stdout.trim();
 }
 
+export async function worktreeChanges(workdir: string) {
+  const output = await git(['status', '--porcelain'], workdir);
+  return output ? output.split(/\r?\n/).filter(Boolean) : [];
+}
+
 export async function worktreeIsClean(workdir: string) {
-  return (await git(['status', '--porcelain'], workdir)) === '';
+  return (await worktreeChanges(workdir)).length === 0;
+}
+
+export function formatWorktreeChanges(changes: string[], limit = 20) {
+  const shown = changes.slice(0, limit).map((change) => `  ${change}`).join('\n');
+  const remaining = changes.length - Math.min(changes.length, limit);
+  return `${shown}${remaining ? `\n  … and ${remaining} more` : ''}`;
 }
 
 export async function promoteCommit(workdir: string, commit: string) {
-  if (!await worktreeIsClean(workdir)) throw new Error('Promotion requires a clean target worktree');
+  const changes = await worktreeChanges(workdir);
+  if (changes.length) throw new Error(
+    `Promotion requires a clean target worktree: ${await repositoryRoot(workdir)}\nChanged paths:\n${formatWorktreeChanges(changes)}`,
+  );
   const canonical = await resolveCommit(workdir, commit);
   const ancestor = await spawnWithTimeout('git', ['merge-base', '--is-ancestor', canonical, 'HEAD'], 30_000, workdir, false);
   if (ancestor.code === 0) return { commit: canonical, changed: false };
@@ -29,12 +43,25 @@ export async function removeWorktree(repository: string, worktree: string) {
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error(`Refusing to remove worktree ${target} outside ${allowedRoot} (relative: ${relative})`);
   }
-  if (!await worktreeIsClean(target)) throw new Error(`Refusing to remove dirty worktree: ${target}`);
+  const changes = await worktreeChanges(target);
+  if (changes.length) throw new Error(
+    `Refusing to remove dirty worktree: ${target}\nChanged paths:\n${formatWorktreeChanges(changes)}`,
+  );
   await git(['worktree', 'remove', target], root);
 }
 
 export async function repositoryRoot(workdir: string) {
   return path.resolve(await git(['rev-parse', '--show-toplevel'], workdir));
+}
+
+export async function pathIsIgnored(repository: string, candidate: string) {
+  const relative = path.relative(path.resolve(repository), path.resolve(candidate)).replace(/\\/g, '/');
+  if (!relative || relative.startsWith('../')) return false;
+  const gitPath = fs.statSync(candidate).isDirectory() ? `${relative}/` : relative;
+  const result = await spawnWithTimeout('git', ['check-ignore', '-q', '--', gitPath], 30_000, repository, false);
+  if (result.code === 0) return true;
+  if (result.code === 1) return false;
+  throw new Error(`git check-ignore failed: ${(result.stderr || result.stdout).trim()}`);
 }
 
 export async function resolveCommit(workdir: string, revision = 'HEAD') {
