@@ -94,6 +94,17 @@ npm run muse -- swarm --config muse.swarm.json "Add account recovery"
 
 Roles whose dependencies are satisfied run concurrently. A `worktree` role receives its own Git branch and checkout under `.muse/worktrees/`. Downstream roles receive atomic handoff records containing a verified 40-character commit ID and bounded summary under `.muse/handoffs/`. Set `workspace` to `shared` only for a role that intentionally operates on the main checkout.
 
+Each role may declare ordered `gates` with a name, command, and timeout plus `maxAttempts`. A failed gate sends bounded output back to that role for correction; no downstream handoff occurs until every gate passes and the worktree is clean. Run state is atomically recorded under `.muse/runs/`.
+
+Promotion and cleanup are explicit lifecycle operations:
+
+```bash
+npm run muse -- swarm promote <run-id> <role>
+npm run muse -- swarm cleanup <run-id>
+```
+
+Promotion requires a clean target checkout and creates an explicit merge of the role's verified commit, including multi-parent swarm results. Cleanup refuses dirty worktrees and preserves their branches, keeping recovery possible.
+
 ## Harness tools
 
 - `read_file` - bounded UTF-8 file reads

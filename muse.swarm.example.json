@@ -13,7 +13,11 @@
       "prompt": "Implement the accepted behavior with focused tests and commit the result.",
       "dependsOn": ["specifier"],
       "workspace": "worktree",
-      "receive": "task"
+      "receive": "task",
+      "maxAttempts": 2,
+      "gates": [
+        { "name": "project-check", "command": "npm run check", "timeoutMs": 300000 }
+      ]
     },
     {
       "id": "reviewer",
@@ -21,7 +25,10 @@
       "prompt": "Review correctness, architecture, and tests. Fix verified defects and commit any changes.",
       "dependsOn": ["coder"],
       "workspace": "worktree",
-      "receive": "batch"
+      "receive": "batch",
+      "gates": [
+        { "name": "project-check", "command": "npm run check", "timeoutMs": 300000 }
+      ]
     }
   ]
 }
