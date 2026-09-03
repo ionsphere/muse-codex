@@ -18,7 +18,7 @@ export type Handoff = {
 export class HandoffStore {
   private readonly root: string;
   constructor(repository: string, private readonly runId: string) {
-    this.root = path.join(repository, '.muse', 'handoffs', runId);
+    this.root = path.join(repository, '.zeal', 'handoffs', runId);
   }
 
   async deliver(input: Omit<Handoff, 'version' | 'id' | 'runId' | 'createdAt' | 'commit'> & { commit: string }, gitWorkdir: string) {

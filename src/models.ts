@@ -83,10 +83,10 @@ export class ModelRegistry {
       this.register(new OpenAICompatibleProvider(id, { baseUrl, apiKey }));
     }
     // A custom OpenAI-compatible server can be added without changing source.
-    if (process.env.MUSE_API_BASE) {
+    if (process.env.ZEAL_API_BASE) {
       this.register(new OpenAICompatibleProvider('custom', {
-        baseUrl: process.env.MUSE_API_BASE,
-        apiKey: () => runtimeCredentials.get('custom') || process.env.MUSE_API_KEY || '',
+        baseUrl: process.env.ZEAL_API_BASE,
+        apiKey: () => runtimeCredentials.get('custom') || process.env.ZEAL_API_KEY || '',
       }));
     }
   }

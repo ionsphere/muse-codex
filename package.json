@@ -1,10 +1,13 @@
 {
-  "name": "muse-codex",
+  "name": "zeal-harness",
   "version": "0.2.0",
-  "description": "Cross-platform Codex-style harness for Meta Muse Spark, with WSL as the first complete runtime",
+  "description": "Model-agnostic multi-agent harness with isolated worktree swarms",
   "type": "module",
+  "bin": {
+    "zeal": "dist/index.js"
+  },
   "scripts": {
-    "muse": "tsx src/index.ts",
+    "zeal": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "test": "tsx --test test/fs-tools.test.ts test/auth.test.ts test/harness.test.ts test/swarm.test.ts",

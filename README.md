@@ -1,4 +1,4 @@
-# muse-codex
+# Zeal
 
 A model-agnostic, multi-agent coding harness. The harness core is independent of model vendors and operating systems; inference and command execution are provided by adapters.
 
@@ -23,10 +23,10 @@ On Windows, `auto` intentionally selects WSL because that is the first supported
 5. Run:
 
 ```bash
-npm run muse -- "Fix the failing tests in the auth module"
+npm run zeal -- "Fix the failing tests in the auth module"
 ```
 
-On the first Meta-backed run, Muse Codex opens Meta's Model API portal. Sign in, create the one-click API key, and paste it once into the terminal. The key is then stored using OS-protected credential storage rather than a project `.env` file. Runs selecting another provider use that provider's credentials and never trigger Meta login.
+On the first Meta-backed run, Zeal opens Meta's Model API portal. Sign in, create the one-click API key, and paste it once into the terminal. The key is then stored using OS-protected credential storage rather than a project `.env` file. Runs selecting another provider use that provider's credentials and never trigger Meta login.
 
 The Windows path in `WORKDIR` is translated to `/mnt/<drive>/...` for commands executed inside WSL, while file editing stays in the host process. This allows Windows and WSL to operate on the same checkout.
 
@@ -35,9 +35,9 @@ The Windows path in `WORKDIR` is translated to `/mnt/<drive>/...` for commands e
 Explicit login is also available:
 
 ```bash
-npm run muse -- login
-npm run muse -- auth status
-npm run muse -- logout
+npm run zeal -- login
+npm run zeal -- auth status
+npm run zeal -- logout
 ```
 
 Credential storage:
@@ -48,11 +48,11 @@ Credential storage:
 
 Environment variables remain supported for CI and advanced setups. Credential resolution order is:
 
-1. `META_MODEL_API_KEY` / compatibility environment aliases
+1. `META_MODEL_API_KEY`
 2. OS secure credential store
 3. interactive login
 
-Meta currently exposes Model API access through account signup plus one-click API key creation; Muse Codex therefore performs a browser handoff and one-time paste rather than pretending a third-party OAuth/device-code flow exists.
+Meta currently exposes Model API access through account signup plus one-click API key creation; Zeal therefore performs a browser handoff and one-time paste rather than pretending a third-party OAuth/device-code flow exists.
 
 ## Platform selection
 
@@ -65,19 +65,19 @@ Automatic selection:
 Override with either:
 
 ```bash
-npm run muse -- --platform linux "Implement the feature"
+npm run zeal -- --platform linux "Implement the feature"
 ```
 
-or `MUSE_PLATFORM=wsl|linux|macos|windows|ios`.
+or `ZEAL_PLATFORM=wsl|linux|macos|windows|ios`.
 
 ## Models and providers
 
 Select a model with `provider/model`:
 
 ```text
-npm run muse -- --model kimi/kimi-k2 "Fix the failing tests"
-npm run muse -- --model qwen/qwen3-coder-plus "Implement the feature"
-npm run muse -- --model openai/gpt-5.4 "Review this change"
+npm run zeal -- --model kimi/kimi-k2 "Fix the failing tests"
+npm run zeal -- --model qwen/qwen3-coder-plus "Implement the feature"
+npm run zeal -- --model openai/gpt-5.4 "Review this change"
 ```
 
 Built-in OpenAI-compatible adapters cover Meta, OpenAI, xAI, Kimi/Moonshot, Qwen/DashScope, OpenRouter, Ollama, and a custom endpoint. `--list-providers` prints the registry. Different child agents may use different providers and models.
@@ -86,25 +86,25 @@ The adapter interface is intentionally independent from Chat Completions so nati
 
 ## Declarative swarms
 
-Define role-specific models, prompts, dependencies, receive modes, and workspace isolation in `muse.swarm.json`. See `muse.swarm.example.json` for a Specifier → Coder → Reviewer workflow.
+Define role-specific models, prompts, dependencies, receive modes, and workspace isolation in `zeal.swarm.json`. See `zeal.swarm.example.json` for a Specifier → Coder → Reviewer workflow.
 
 ```bash
-npm run muse -- swarm --config muse.swarm.json "Add account recovery"
+npm run zeal -- swarm --config zeal.swarm.json "Add account recovery"
 ```
 
-Roles whose dependencies are satisfied run concurrently. A `worktree` role receives its own Git branch and checkout under `.muse/worktrees/`. Downstream roles receive atomic handoff records containing a verified 40-character commit ID and bounded summary under `.muse/handoffs/`. Set `workspace` to `shared` only for a role that intentionally operates on the main checkout.
+Roles whose dependencies are satisfied run concurrently. A `worktree` role receives its own Git branch and checkout under `.zeal/worktrees/`. Downstream roles receive atomic handoff records containing a verified 40-character commit ID and bounded summary under `.zeal/handoffs/`. Set `workspace` to `shared` only for a role that intentionally operates on the main checkout.
 
 `WORKDIR` may point at the repository itself, an ordinary subdirectory, or a nested Git checkout. A nested checkout wins even when its directory is ignored by the parent repository. An ignored placeholder with no nested `.git` is rejected instead of silently targeting the parent; initialize or clone a repository there, or set `WORKDIR=.` to target the parent explicitly.
 
 Fully isolated swarms start from committed `HEAD` and may run while the main checkout has local changes—the CLI lists those paths and makes clear they are excluded. A swarm containing any `shared` role still requires a clean checkout and reports the exact blocking paths plus remediation.
 
-Each role may declare ordered `gates` with a name, command, and timeout plus `maxAttempts`. A failed gate sends bounded output back to that role for correction; no downstream handoff occurs until every gate passes and the worktree is clean. Run state is atomically recorded under `.muse/runs/`.
+Each role may declare ordered `gates` with a name, command, and timeout plus `maxAttempts`. A failed gate sends bounded output back to that role for correction; no downstream handoff occurs until every gate passes and the worktree is clean. Run state is atomically recorded under `.zeal/runs/`.
 
 Promotion and cleanup are explicit lifecycle operations:
 
 ```bash
-npm run muse -- swarm promote <run-id> <role>
-npm run muse -- swarm cleanup <run-id>
+npm run zeal -- swarm promote <run-id> <role>
+npm run zeal -- swarm cleanup <run-id>
 ```
 
 Promotion requires a clean target checkout and creates an explicit merge of the role's verified commit, including multi-parent swarm results. Cleanup refuses dirty worktrees and preserves their branches, keeping recovery possible.

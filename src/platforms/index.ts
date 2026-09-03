@@ -11,11 +11,11 @@ const platforms: Record<PlatformId, PlatformAdapter> = {
   ios: iosPlatform,
 };
 
-export function detectPlatform(requested = process.env.MUSE_PLATFORM || 'auto'): PlatformAdapter {
+export function detectPlatform(requested = process.env.ZEAL_PLATFORM || 'auto'): PlatformAdapter {
   if (requested !== 'auto') {
     const platform = platforms[requested as PlatformId];
     if (!platform) {
-      throw new Error(`Unknown MUSE_PLATFORM=${requested}. Expected auto, ${Object.keys(platforms).join(', ')}`);
+      throw new Error(`Unknown ZEAL_PLATFORM=${requested}. Expected auto, ${Object.keys(platforms).join(', ')}`);
     }
     return platform;
   }

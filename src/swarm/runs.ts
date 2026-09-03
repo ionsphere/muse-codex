@@ -26,7 +26,7 @@ export type SwarmRunRecord = {
 export class RunStore {
   private readonly file: string;
   constructor(repository: string, runId: string) {
-    this.file = path.join(repository, '.muse', 'runs', `${runId}.json`);
+    this.file = path.join(repository, '.zeal', 'runs', `${runId}.json`);
   }
 
   write(record: SwarmRunRecord) {
@@ -38,7 +38,7 @@ export class RunStore {
 
   static read(repository: string, runId: string): SwarmRunRecord {
     if (!/^[0-9]{14}-[0-9]+$/.test(runId)) throw new Error('Invalid swarm run ID');
-    const file = path.join(repository, '.muse', 'runs', `${runId}.json`);
+    const file = path.join(repository, '.zeal', 'runs', `${runId}.json`);
     if (!fs.existsSync(file)) throw new Error(`Unknown swarm run: ${runId}`);
     return JSON.parse(fs.readFileSync(file, 'utf8')) as SwarmRunRecord;
   }

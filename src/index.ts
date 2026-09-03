@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import 'dotenv/config';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -26,7 +27,7 @@ function parseArgs(argv: string[]) {
   let platform: string | undefined;
   let model: string | undefined;
   let listProviders = false;
-  let swarmConfig = 'muse.swarm.json';
+  let swarmConfig = 'zeal.swarm.json';
 
   for (let i = start; i < argv.length; i++) {
     if (argv[i] === '--platform') {
@@ -85,7 +86,7 @@ async function main() {
     console.log(new ModelRegistry().list().join('\n'));
     return;
   }
-  if (args.platform) process.env.MUSE_PLATFORM = args.platform;
+  if (args.platform) process.env.ZEAL_PLATFORM = args.platform;
 
   const workdir = path.resolve(config.workdir);
   if (!fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) {
@@ -95,14 +96,14 @@ async function main() {
   }
   if (args.command === 'swarm-promote') {
     const [runId, roleId] = args.task.split(/\s+/, 2);
-    if (!runId || !roleId) throw new Error('Usage: muse swarm promote <run-id> <role>');
+    if (!runId || !roleId) throw new Error('Usage: zeal swarm promote <run-id> <role>');
     const result = await promoteSwarmRole(workdir, runId, roleId);
     console.log(result.changed ? `Promoted ${roleId} at ${result.commit}` : `${roleId} commit is already present`);
     return;
   }
   if (args.command === 'swarm-cleanup') {
     const runId = args.task.trim();
-    if (!runId) throw new Error('Usage: muse swarm cleanup <run-id>');
+    if (!runId) throw new Error('Usage: zeal swarm cleanup <run-id>');
     const result = await cleanupSwarmRun(workdir, runId);
     console.log(`Removed ${result.removed.length} clean worktree(s); branches were preserved`);
     return;
@@ -111,7 +112,7 @@ async function main() {
   const swarm = args.command === 'swarm' ? loadSwarmConfig(args.swarmConfig) : undefined;
   const selection = args.model
     ? parseModelSelection(args.model)
-    : parseModelSelection(config.model, process.env.MUSE_PROVIDER || 'meta');
+    : parseModelSelection(config.model, process.env.ZEAL_PROVIDER || 'meta');
   const needsMeta = swarm
     ? swarm.roles.some((role) => role.model.provider === 'meta')
     : selection.provider === 'meta';

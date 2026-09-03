@@ -91,7 +91,7 @@ function systemPrompt(workdir: string, selection: ModelSelection, extra = '') {
     .map((tool) => tool.function.name)
     .join(', ');
 
-  return `You are Muse Codex, a model-agnostic coding-agent harness running ${selection.provider}/${selection.model}.
+  return `You are Zeal, a model-agnostic coding-agent harness running ${selection.provider}/${selection.model}.
 Platform: ${platform.label}
 Workdir: ${workdir}
 ${platform.promptNotes}
@@ -121,11 +121,11 @@ type RunAgentOptions = {
 export async function runAgent(opts: RunAgentOptions) {
   const journal = new Journal(opts.workdir);
   const platform = detectPlatform();
-  const selection = opts.selection ?? parseModelSelection(config.model, process.env.MUSE_PROVIDER || 'meta');
+  const selection = opts.selection ?? parseModelSelection(config.model, process.env.ZEAL_PROVIDER || 'meta');
   const coordinator = opts.coordinator ?? new AgentCoordinator(config.maxAgents);
 
   if (!opts.isSubagent) {
-    console.log(`\n=== Muse Codex (${selection.provider}/${selection.model}) ===`);
+    console.log(`\n=== Zeal (${selection.provider}/${selection.model}) ===`);
     console.log(`Platform: ${platform.label}`);
     console.log(`Workdir: ${opts.workdir}`);
     console.log(`Task: ${opts.task}`);

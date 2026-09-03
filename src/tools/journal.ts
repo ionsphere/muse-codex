@@ -4,7 +4,7 @@ export type JournalEntry = { ts: string; role: string; tool?: string; args?: any
 export class Journal {
   private file: string;
   constructor(workdir: string) {
-    this.file = path.join(workdir, '.muse', 'journal.jsonl');
+    this.file = path.join(workdir, '.zeal', 'journal.jsonl');
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
   }
   append(e: JournalEntry) {

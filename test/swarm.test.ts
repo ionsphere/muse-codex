@@ -11,17 +11,17 @@ import { cleanupSwarmRun, promoteSwarmRole } from '../src/swarm/lifecycle.js';
 import { RunStore, type SwarmRunRecord } from '../src/swarm/runs.js';
 import { inspectSwarmWorkspace } from '../src/swarm/runner.js';
 
-function tempDir() { return fs.mkdtempSync(path.join(os.tmpdir(), 'muse-swarm-')); }
+function tempDir() { return fs.mkdtempSync(path.join(os.tmpdir(), 'zeal-swarm-')); }
 function git(cwd: string, ...args: string[]) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 function repository() {
   const root = tempDir();
   git(root, 'init');
-  git(root, 'config', 'user.name', 'Muse Test');
-  git(root, 'config', 'user.email', 'muse-test@localhost');
+  git(root, 'config', 'user.name', 'Zeal Test');
+  git(root, 'config', 'user.email', 'zeal-test@localhost');
   fs.writeFileSync(path.join(root, 'README.md'), 'base\n');
-  fs.writeFileSync(path.join(root, '.gitignore'), '.muse/\nworkdir/\n');
+  fs.writeFileSync(path.join(root, '.gitignore'), '.zeal/\nworkdir/\n');
   git(root, 'add', 'README.md', '.gitignore');
   git(root, 'commit', '-m', 'base');
   return root;
@@ -72,7 +72,7 @@ test('promotes passed role commits and safely cleans their worktrees', async () 
   const cleaned = await cleanupSwarmRun(root, runId);
   assert.deepEqual(cleaned.removed, [coder]);
   assert.equal(fs.existsSync(coder), false);
-  assert.match(git(root, 'branch', '--list', `muse/${runId}/coder`), /muse\//);
+  assert.match(git(root, 'branch', '--list', `zeal/${runId}/coder`), /zeal\//);
   fs.rmSync(root, { recursive: true, force: true });
 });
 

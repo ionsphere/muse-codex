@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const SERVICE = 'muse-codex-meta-model-api';
+const SERVICE = 'zeal-meta-model-api';
 const ACCOUNT = os.userInfo().username || 'default';
 
 export type CredentialStoreStatus = {
@@ -30,7 +30,7 @@ function commandExists(command: string): boolean {
 
 function windowsCredentialFile(): string {
   const root = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-  return path.join(root, 'muse-codex', 'meta-model-api.dpapi');
+  return path.join(root, 'zeal', 'meta-model-api.dpapi');
 }
 
 export function credentialStoreStatus(): CredentialStoreStatus {
@@ -59,12 +59,12 @@ export function readStoredCredential(): string | undefined {
     const file = windowsCredentialFile();
     if (!fs.existsSync(file)) return undefined;
     const script = [
-      '$bytes=[IO.File]::ReadAllBytes($env:MUSE_CREDENTIAL_FILE)',
+      '$bytes=[IO.File]::ReadAllBytes($env:ZEAL_CREDENTIAL_FILE)',
       '$plain=[Security.Cryptography.ProtectedData]::Unprotect($bytes,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)',
       '[Console]::Out.Write([Text.Encoding]::UTF8.GetString($plain))',
     ].join(';');
     const result = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-      env: { ...process.env, MUSE_CREDENTIAL_FILE: file },
+      env: { ...process.env, ZEAL_CREDENTIAL_FILE: file },
     });
     return result.status === 0 ? result.stdout.trim() || undefined : undefined;
   }
@@ -86,26 +86,26 @@ export function writeStoredCredential(secret: string): void {
     const file = windowsCredentialFile();
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const script = [
-      '$plain=[Text.Encoding]::UTF8.GetBytes($env:MUSE_SECRET)',
+      '$plain=[Text.Encoding]::UTF8.GetBytes($env:ZEAL_SECRET)',
       '$bytes=[Security.Cryptography.ProtectedData]::Protect($plain,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)',
-      '[IO.File]::WriteAllBytes($env:MUSE_CREDENTIAL_FILE,$bytes)',
+      '[IO.File]::WriteAllBytes($env:ZEAL_CREDENTIAL_FILE,$bytes)',
     ].join(';');
     const result = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-      env: { ...process.env, MUSE_SECRET: secret, MUSE_CREDENTIAL_FILE: file },
+      env: { ...process.env, ZEAL_SECRET: secret, ZEAL_CREDENTIAL_FILE: file },
     });
     if (result.status !== 0) throw new Error(result.stderr.trim() || 'Failed to store credential with Windows DPAPI.');
     return;
   }
 
   if (status.backend === 'macos-keychain') {
-    const result = run('/bin/sh', ['-lc', 'security add-generic-password -U -a "$MUSE_ACCOUNT" -s "$MUSE_SERVICE" -w "$MUSE_SECRET"'], {
-      env: { ...process.env, MUSE_ACCOUNT: ACCOUNT, MUSE_SERVICE: SERVICE, MUSE_SECRET: secret },
+    const result = run('/bin/sh', ['-lc', 'security add-generic-password -U -a "$ZEAL_ACCOUNT" -s "$ZEAL_SERVICE" -w "$ZEAL_SECRET"'], {
+      env: { ...process.env, ZEAL_ACCOUNT: ACCOUNT, ZEAL_SERVICE: SERVICE, ZEAL_SECRET: secret },
     });
     if (result.status !== 0) throw new Error(result.stderr.trim() || 'Failed to store credential in macOS Keychain.');
     return;
   }
 
-  const result = run('secret-tool', ['store', '--label=Muse Codex Meta Model API', 'service', SERVICE, 'account', ACCOUNT], { input: secret });
+  const result = run('secret-tool', ['store', '--label=Zeal Meta Model API', 'service', SERVICE, 'account', ACCOUNT], { input: secret });
   if (result.status !== 0) throw new Error(result.stderr.trim() || 'Failed to store credential in Secret Service.');
 }
 

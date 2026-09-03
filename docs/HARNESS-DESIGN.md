@@ -1,10 +1,10 @@
-# Muse harness architecture
+# Zeal harness architecture
 
-Muse-Codex is a model-agnostic agent runtime. Models propose actions; the harness owns context, tools, permissions, concurrency, state, and verification.
+Zeal is a model-agnostic agent runtime. Models propose actions; the harness owns context, tools, permissions, concurrency, state, and verification.
 
 ## Reference comparison
 
-| Concern | Grok Build / GrokBot | SwarmForge | Muse-Codex direction |
+| Concern | Grok Build / GrokBot | SwarmForge | Zeal direction |
 | --- | --- | --- | --- |
 | Model binding | Grok runtime first, with provider bridges | Launches independent Codex, Claude, Copilot, or Grok CLIs per role | Native provider interface; every agent selects its own provider/model |
 | Topology | Primary agent with dynamic subagents and optional councils | Configured role pipeline (`two-pack`, `four-pack`, `six-pack`) | Both dynamic delegation and declarative role graphs |
@@ -14,7 +14,7 @@ Muse-Codex is a model-agnostic agent runtime. Models propose actions; the harnes
 | UX | Full TUI/desktop, history, preview, remote agent, schedules | Observable tmux sessions | Normalized event stream first; TUI/desktop/remote clients consume it |
 | Durability | Resumable sessions and checkpoints | Local handoff queues and Git commits | Atomic sessions, event journal, checkpoints, resumable agents |
 
-Grok Build is the stronger single-agent harness and product surface. SwarmForge is the stronger explicit software-production workflow: its valuable ideas are named roles, isolated worktrees, small validated handoffs, and deterministic quality gates. Muse should combine these without embedding any vendor CLI as its runtime.
+Grok Build is the stronger single-agent harness and product surface. SwarmForge is the stronger explicit software-production workflow: its valuable ideas are named roles, isolated worktrees, small validated handoffs, and deterministic quality gates. Zeal combines these without embedding any vendor CLI as its runtime.
 
 ## Implemented foundation
 
