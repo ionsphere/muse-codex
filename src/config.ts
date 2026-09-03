@@ -6,17 +6,16 @@ export function setRuntimeApiKey(apiKey: string): void {
 
 export const config = {
   get apiKey() {
-    return runtimeApiKey || process.env.META_MODEL_API_KEY || process.env.MUSE_API_KEY || process.env.LLAMA_API_KEY || '';
+    return runtimeApiKey || process.env.META_MODEL_API_KEY || process.env.ZEAL_API_KEY || '';
   },
-  model: process.env.META_MODEL_API_MODEL || process.env.MUSE_MODEL || process.env.LLAMA_MODEL || 'muse-spark-1.2',
+  model: process.env.META_MODEL_API_MODEL || process.env.ZEAL_MODEL || 'muse-spark-1.2',
   workdir: process.env.WORKDIR || './workdir',
   apiBase: (
     process.env.META_MODEL_API_BASE_URL ||
-    process.env.MUSE_API_BASE ||
-    process.env.LLAMA_API_BASE ||
+    process.env.ZEAL_API_BASE ||
     'https://api.meta.ai/v1'
   ).replace(/\/$/, ''),
-  maxSteps: Number(process.env.MUSE_MAX_STEPS || 100),
-  commandTimeoutMs: Number(process.env.MUSE_COMMAND_TIMEOUT_MS || 120_000),
-  maxAgents: Number(process.env.MUSE_MAX_AGENTS || 4),
+  maxSteps: Number(process.env.ZEAL_MAX_STEPS || 100),
+  commandTimeoutMs: Number(process.env.ZEAL_COMMAND_TIMEOUT_MS || 120_000),
+  maxAgents: Number(process.env.ZEAL_MAX_AGENTS || 4),
 };

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import 'dotenv/config';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -8,8 +9,9 @@ import { authStatus, ensureMetaCredential, loginMeta, logoutMeta } from './auth/
 import { ModelRegistry, parseModelSelection, setModelCredential } from './models.js';
 import { loadSwarmConfig } from './swarm/config.js';
 import { runSwarm } from './swarm/runner.js';
+import { cleanupSwarmRun, promoteSwarmRole } from './swarm/lifecycle.js';
 
-type Command = 'run' | 'swarm' | 'login' | 'logout' | 'auth-status';
+type Command = 'run' | 'swarm' | 'swarm-promote' | 'swarm-cleanup' | 'login' | 'logout' | 'auth-status';
 
 function parseArgs(argv: string[]) {
   let command: Command = 'run';
@@ -17,13 +19,15 @@ function parseArgs(argv: string[]) {
   if (argv[0] === 'login') { command = 'login'; start = 1; }
   else if (argv[0] === 'logout') { command = 'logout'; start = 1; }
   else if (argv[0] === 'auth' && argv[1] === 'status') { command = 'auth-status'; start = 2; }
+  else if (argv[0] === 'swarm' && argv[1] === 'promote') { command = 'swarm-promote'; start = 2; }
+  else if (argv[0] === 'swarm' && argv[1] === 'cleanup') { command = 'swarm-cleanup'; start = 2; }
   else if (argv[0] === 'swarm') { command = 'swarm'; start = 1; }
 
   const taskParts: string[] = [];
   let platform: string | undefined;
   let model: string | undefined;
   let listProviders = false;
-  let swarmConfig = 'muse.swarm.json';
+  let swarmConfig = 'zeal.swarm.json';
 
   for (let i = start; i < argv.length; i++) {
     if (argv[i] === '--platform') {
@@ -42,9 +46,10 @@ function parseArgs(argv: string[]) {
     }
   }
 
+  const rawTask = taskParts.join(' ');
   return {
     command,
-    task: taskParts.join(' ') || 'Explore codebase and summarize',
+    task: rawTask || (command === 'run' || command === 'swarm' ? 'Explore codebase and summarize' : ''),
     platform,
     model,
     listProviders,
@@ -81,12 +86,33 @@ async function main() {
     console.log(new ModelRegistry().list().join('\n'));
     return;
   }
-  if (args.platform) process.env.MUSE_PLATFORM = args.platform;
+  if (args.platform) process.env.ZEAL_PLATFORM = args.platform;
+
+  const workdir = path.resolve(config.workdir);
+  if (!fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) {
+    console.error(`Workdir ${workdir} not found. Set WORKDIR to an existing repository directory.`);
+    process.exitCode = 1;
+    return;
+  }
+  if (args.command === 'swarm-promote') {
+    const [runId, roleId] = args.task.split(/\s+/, 2);
+    if (!runId || !roleId) throw new Error('Usage: zeal swarm promote <run-id> <role>');
+    const result = await promoteSwarmRole(workdir, runId, roleId);
+    console.log(result.changed ? `Promoted ${roleId} at ${result.commit}` : `${roleId} commit is already present`);
+    return;
+  }
+  if (args.command === 'swarm-cleanup') {
+    const runId = args.task.trim();
+    if (!runId) throw new Error('Usage: zeal swarm cleanup <run-id>');
+    const result = await cleanupSwarmRun(workdir, runId);
+    console.log(`Removed ${result.removed.length} clean worktree(s); branches were preserved`);
+    return;
+  }
 
   const swarm = args.command === 'swarm' ? loadSwarmConfig(args.swarmConfig) : undefined;
   const selection = args.model
     ? parseModelSelection(args.model)
-    : parseModelSelection(config.model, process.env.MUSE_PROVIDER || 'meta');
+    : parseModelSelection(config.model, process.env.ZEAL_PROVIDER || 'meta');
   const needsMeta = swarm
     ? swarm.roles.some((role) => role.model.provider === 'meta')
     : selection.provider === 'meta';
@@ -98,15 +124,9 @@ async function main() {
   }
 
   const platform = detectPlatform();
-  const workdir = path.resolve(config.workdir);
-  if (!fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) {
-    console.error(`Workdir ${workdir} not found. Set WORKDIR to an existing repository directory.`);
-    process.exitCode = 1;
-    return;
-  }
-
   console.log(`Selected platform: ${platform.id} (${platform.label})`);
   if (swarm) {
+    console.log(`Configured workdir: ${workdir}`);
     const result = await runSwarm(swarm, args.task, workdir);
     console.log(`Swarm ${result.runId} completed ${result.roles.length} roles`);
     return;

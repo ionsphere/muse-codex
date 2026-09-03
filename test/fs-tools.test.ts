@@ -6,7 +6,7 @@ import test from 'node:test';
 import { applyPatchTool, globTool, grepTool, readFileTool } from '../src/tools/fs-tools.js';
 
 function tempWorkdir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'muse-codex-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'zeal-'));
 }
 
 test('filesystem tools stay inside workdir and support patch lifecycle', async () => {

@@ -7,7 +7,7 @@ export const META_MODEL_API_PORTAL = 'https://developer.meta.com/ai/';
 export type AuthSource = 'environment' | 'secure-store' | 'interactive';
 
 export function environmentCredential(): string | undefined {
-  return process.env.META_MODEL_API_KEY || process.env.MUSE_API_KEY || process.env.LLAMA_API_KEY || undefined;
+  return process.env.META_MODEL_API_KEY || undefined;
 }
 
 export function resolveCredential(): { apiKey?: string; source?: AuthSource } {
@@ -33,7 +33,7 @@ function openBrowser(url: string): void {
 
 async function promptSecret(prompt: string): Promise<string> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error('Interactive login requires a terminal. Run `muse login` in a terminal or set META_MODEL_API_KEY.');
+    throw new Error('Interactive login requires a terminal. Run `zeal login` in a terminal or set META_MODEL_API_KEY.');
   }
 
   process.stdout.write(prompt);

@@ -1,30 +1,68 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { runAgent } from '../agent.js';
 import { AgentCoordinator } from '../coordinator.js';
 import { config as runtimeConfig } from '../config.js';
 import type { SwarmConfig, SwarmRole } from './config.js';
 import { HandoffStore, type Handoff } from './handoffs.js';
-import { repositoryRoot, resolveCommit, WorktreeManager } from './git.js';
+import { formatWorktreeChanges, pathIsIgnored, repositoryRoot, resolveCommit, WorktreeManager, worktreeChanges, worktreeIsClean } from './git.js';
+import { gateFailurePrompt, runQualityGates, type GateResult } from './gates.js';
+import { RunStore, type RoleRunRecord, type SwarmRunRecord } from './runs.js';
 
 export type SwarmRunResult = { runId: string; roles: Array<{ role: string; result: string; workdir: string; commit: string }> };
 
+export async function inspectSwarmWorkspace(config: SwarmConfig, workdir: string) {
+  const repository = fs.realpathSync.native(await repositoryRoot(workdir));
+  const requested = fs.realpathSync.native(path.resolve(workdir));
+  const relative = path.relative(repository, requested);
+  if (relative && !relative.startsWith('..') && !path.isAbsolute(relative) && await pathIsIgnored(repository, requested)) {
+    throw new Error(
+      `Configured workdir is an ignored directory inside another repository, not a nested Git checkout.\n` +
+      `Configured workdir: ${requested}\nParent repository: ${repository}\n` +
+      `Clone or initialize a repository at ${requested}, or set WORKDIR=${repository} to target the parent repository.`,
+    );
+  }
+  const baseCommit = await resolveCommit(repository);
+  const localChanges = await worktreeChanges(repository);
+  const sharedRoles = config.roles.filter((role) => role.workspace === 'shared').map((role) => role.id);
+  if (localChanges.length && sharedRoles.length) throw new Error(
+    `Swarm roles using the shared checkout require a clean repository.\n` +
+    `Repository: ${repository}\nShared roles: ${sharedRoles.join(', ')}\nChanged paths:\n${formatWorktreeChanges(localChanges)}\n` +
+    'Commit or stash these changes, or set those roles to workspace "worktree".',
+  );
+  return { repository, baseCommit, localChanges };
+}
+
 export async function runSwarm(config: SwarmConfig, task: string, workdir: string): Promise<SwarmRunResult> {
-  const repository = await repositoryRoot(workdir);
+  const { repository, baseCommit, localChanges } = await inspectSwarmWorkspace(config, workdir);
+  console.log(`Swarm repository: ${repository}`);
+  console.log(`Swarm base commit: ${baseCommit}`);
+  if (localChanges.length) console.warn(
+    `Notice: ${localChanges.length} local change(s) are not included; isolated roles start from committed HEAD:\n` +
+    formatWorktreeChanges(localChanges),
+  );
   const runId = `${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${process.pid}`;
   const worktrees = new WorktreeManager(repository, runId);
   const handoffs = new HandoffStore(repository, runId);
   const pending = new Map(config.roles.map((role) => [role.id, role]));
   const completed = new Set<string>();
   const results: SwarmRunResult['roles'] = [];
+  const record: SwarmRunRecord = {
+    version: 1, runId, task, repository, status: 'running', startedAt: new Date().toISOString(),
+    roles: config.roles.map((role) => ({ role: role.id, status: 'running', attempt: 0, gates: [] })),
+  };
+  const store = new RunStore(repository, runId);
+  store.write(record);
 
-  while (pending.size) {
+  try { while (pending.size) {
     const ready = [...pending.values()].filter((role) => role.dependsOn.every((id) => completed.has(id)));
     if (!ready.length) throw new Error('No runnable swarm roles remain');
     const isolated = ready.filter((role) => role.workspace === 'worktree');
     const shared = ready.filter((role) => role.workspace === 'shared');
     const layer = await mapBounded(isolated, runtimeConfig.maxAgents, (role) =>
-      runRole(role, task, repository, worktrees, handoffs));
-    for (const role of shared) layer.push(await runRole(role, task, repository, worktrees, handoffs));
+      runRole(role, task, repository, worktrees, handoffs, roleRecord(record, role.id), store, record));
+    for (const role of shared) layer.push(await runRole(
+      role, task, repository, worktrees, handoffs, roleRecord(record, role.id), store, record));
     for (const result of layer) {
       results.push(result);
       completed.add(result.role);
@@ -39,8 +77,20 @@ export async function runSwarm(config: SwarmConfig, task: string, workdir: strin
         }, result.workdir);
       }
     }
+  }} catch (error: any) {
+    record.status = 'failed';
+    record.finishedAt = new Date().toISOString();
+    store.write(record);
+    throw error;
   }
+  record.status = 'passed';
+  record.finishedAt = new Date().toISOString();
+  store.write(record);
   return { runId, roles: results };
+}
+
+function roleRecord(run: SwarmRunRecord, id: string) {
+  return run.roles.find((role) => role.role === id)!;
 }
 
 async function mapBounded<T, R>(items: T[], limit: number, run: (item: T) => Promise<R>): Promise<R[]> {
@@ -57,22 +107,50 @@ async function runRole(
   repository: string,
   worktrees: WorktreeManager,
   handoffs: HandoffStore,
+  record: RoleRunRecord,
+  store: RunStore,
+  run: SwarmRunRecord,
 ) {
   const incoming = handoffs.receive(role.id);
   const roleWorkdir = role.workspace === 'shared'
     ? repository
     : await worktrees.create(role.id, incoming.map((handoff) => handoff.commit));
-  const prompt = buildRoleTask(role, task, incoming);
-  const result = await runAgent({
-    task: prompt,
-    workdir: roleWorkdir,
-    selection: role.model,
-    coordinator: new AgentCoordinator(),
-    systemExtra: `Your swarm role is ${role.id}. ${role.prompt}`,
-    isSubagent: true,
-  });
-  const commit = await resolveCommit(roleWorkdir);
-  return { role: role.id, result, workdir: path.resolve(roleWorkdir), commit };
+  record.workdir = path.resolve(roleWorkdir);
+  store.write(run);
+  let prompt = buildRoleTask(role, task, incoming);
+  let result = '';
+  try {
+    for (let attempt = 1; attempt <= role.maxAttempts; attempt++) {
+      record.attempt = attempt;
+      store.write(run);
+      result = await runAgent({
+        task: prompt,
+        workdir: roleWorkdir,
+        selection: role.model,
+        coordinator: new AgentCoordinator(),
+        systemExtra: `Your swarm role is ${role.id}. ${role.prompt} Before reporting completion, commit all intended changes; the harness only hands off committed state.`,
+        isSubagent: true,
+      });
+      const gates = await runQualityGates(role.gates, roleWorkdir);
+      record.gates = gates;
+      const failure = gateFailurePrompt(gates);
+      const clean = await worktreeIsClean(roleWorkdir);
+      if (!failure && clean) {
+        const commit = await resolveCommit(roleWorkdir);
+        record.commit = commit;
+        record.status = 'passed';
+        store.write(run);
+        return { role: role.id, result, workdir: path.resolve(roleWorkdir), commit };
+      }
+      prompt = failure || 'The worktree has uncommitted changes. Review them, commit all intended changes, and verify the repository is clean.';
+    }
+    throw new Error(`Role ${role.id} exhausted ${role.maxAttempts} attempt(s)`);
+  } catch (error: any) {
+    record.status = 'failed';
+    record.error = error?.message || String(error);
+    store.write(run);
+    throw error;
+  }
 }
 
 function buildRoleTask(role: SwarmRole, task: string, handoffs: Handoff[]) {

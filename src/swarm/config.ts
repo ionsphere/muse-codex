@@ -4,6 +4,7 @@ import { parseModelSelection, type ModelSelection } from '../models.js';
 
 export type WorkspaceMode = 'shared' | 'worktree';
 export type ReceiveMode = 'task' | 'batch';
+export type QualityGate = { name: string; command: string; timeoutMs: number };
 
 export type SwarmRole = {
   id: string;
@@ -12,6 +13,8 @@ export type SwarmRole = {
   dependsOn: string[];
   workspace: WorkspaceMode;
   receive: ReceiveMode;
+  gates: QualityGate[];
+  maxAttempts: number;
 };
 
 export type SwarmConfig = {
@@ -26,6 +29,8 @@ type RawRole = {
   dependsOn?: unknown;
   workspace?: unknown;
   receive?: unknown;
+  gates?: unknown;
+  maxAttempts?: unknown;
 };
 
 export function loadSwarmConfig(file: string): SwarmConfig {
@@ -55,7 +60,23 @@ export function loadSwarmConfig(file: string): SwarmConfig {
     if (workspace !== 'shared' && workspace !== 'worktree') throw new Error(`Role ${id} has invalid workspace mode`);
     const receive = item.receive ?? 'task';
     if (receive !== 'task' && receive !== 'batch') throw new Error(`Role ${id} has invalid receive mode`);
-    return { id, model: parseModelSelection(item.model), prompt: item.prompt.trim(), dependsOn, workspace, receive };
+    const maxAttempts = item.maxAttempts ?? 1;
+    if (typeof maxAttempts !== 'number' || !Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
+      throw new Error(`Role ${id}.maxAttempts must be an integer from 1 to 10`);
+    }
+    const rawGates = item.gates ?? [];
+    if (!Array.isArray(rawGates)) throw new Error(`Role ${id}.gates must be an array`);
+    const gates = rawGates.map((gate: any, gateIndex: number): QualityGate => {
+      if (!gate || typeof gate.name !== 'string' || !gate.name.trim() || typeof gate.command !== 'string' || !gate.command.trim()) {
+        throw new Error(`Role ${id}.gates[${gateIndex}] requires name and command`);
+      }
+      const timeoutMs = gate.timeoutMs ?? 120_000;
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 3_600_000) {
+        throw new Error(`Role ${id}.gates[${gateIndex}].timeoutMs must be between 1000 and 3600000`);
+      }
+      return { name: gate.name.trim(), command: gate.command.trim(), timeoutMs };
+    });
+    return { id, model: parseModelSelection(item.model), prompt: item.prompt.trim(), dependsOn, workspace, receive, gates, maxAttempts };
   });
 
   for (const role of roles) {
